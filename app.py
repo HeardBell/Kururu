@@ -24,6 +24,8 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
 
+# Comment for me
+
 class Appointment(db.Model):
     __tablename__ = 'doctorTime'
 
