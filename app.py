@@ -5,8 +5,6 @@ from flask_migrate import Migrate
 import os
 from dotenv import load_dotenv
 
-from werkzeug.middleware.dispatcher import DispatcherMiddleware
-from prometheus_client import make_wsgi_app
 
 load_dotenv()
 DB_NAME = os.getenv('DB_NAME')
@@ -23,18 +21,8 @@ users_seen = {}
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, DB_NAME)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Add prometheus wsgi middleware to route /metrics requests
-app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
-    '/metrics': make_wsgi_app()
-})
-
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-
-
-# Comment for me
-#COmment for U love U
-# adoaosdosadsa
 
 class Appointment(db.Model):
     __tablename__ = 'doctorTime'
@@ -52,6 +40,7 @@ class Appointment(db.Model):
 def get_appointments():
     appointments = Appointment.query.all()
     return [appointment.as_dict() for appointment in appointments]
+
 
 @app.route("/delete/<patient>", methods=['DELETE'])
 def delete_appointment(patient):
