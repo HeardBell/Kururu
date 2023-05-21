@@ -5,6 +5,9 @@ from flask_migrate import Migrate
 import os
 from dotenv import load_dotenv
 
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
+from prometheus_client import make_wsgi_app
+
 load_dotenv()
 DB_NAME = os.getenv('DB_NAME')
 APP_HOST = os.getenv('APP_HOST')
@@ -19,6 +22,11 @@ users_seen = {}
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, DB_NAME)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Add prometheus wsgi middleware to route /metrics requests
+app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
+    '/metrics': make_wsgi_app()
+})
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
