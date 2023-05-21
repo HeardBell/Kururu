@@ -25,6 +25,7 @@ migrate = Migrate(app, db)
 
 
 # Comment for me
+#COmment for U love U
 
 class Appointment(db.Model):
     __tablename__ = 'doctorTime'
