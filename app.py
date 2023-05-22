@@ -1,12 +1,12 @@
 import time
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 import os
 from dotenv import load_dotenv
 
 from prometheus_flask_exporter import PrometheusMetrics
-from prometheus_client import Counter
+from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 
 load_dotenv()
 DB_NAME = os.getenv('DB_NAME')
@@ -27,7 +27,7 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 metrics = PrometheusMetrics(app)
 
-REQUEST_COUNT = Counter('request_count', 'Number of requests served')
+REQUEST_COUNT = Counter('ALABAMA_REQUEST', 'Number of requests served')
 
 class Appointment(db.Model):
     __tablename__ = 'doctorTime'
@@ -44,7 +44,7 @@ class Appointment(db.Model):
 @app.route('/show', methods=['GET'])
 def get_appointments():
     appointments = Appointment.query.all()
-    time.sleep(15)
+    time.sleep(5)
     return [appointment.as_dict() for appointment in appointments]
 
 
@@ -55,9 +55,14 @@ def delete_appointment(patient):
     return jsonify(success=True)
 
 
+@app.route('/metrics')
+def metrics():
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
+
+
 @app.route('/record', methods=['POST'])
 def create_appointment():
-    REQUEST_COUNT.ink()
+    REQUEST_COUNT.inc()
     doctor = request.json.get('doctor')
     patient = request.json.get('patient')
     date = request.json.get('date') 
@@ -69,6 +74,7 @@ def create_appointment():
     db.session.add(new_appointment)
     db.session.commit()
     return jsonify(success=True, appointment=new_appointment.as_dict())
+
 
 if __name__ == '__main__':
     app.run(host=APP_HOST, port=APP_PORT, debug=IS_DEBUG)
