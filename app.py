@@ -5,6 +5,8 @@ from flask_migrate import Migrate
 import os
 from dotenv import load_dotenv
 
+from prometheus_flask_exporter import PrometheusMetrics
+from prometheus_client import Counter
 
 load_dotenv()
 DB_NAME = os.getenv('DB_NAME')
@@ -23,6 +25,9 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+metrics = PrometheusMetrics(app)
+
+REQUEST_COUNT = Counter('request_count', 'Number of requests served')
 
 class Appointment(db.Model):
     __tablename__ = 'doctorTime'
@@ -39,6 +44,7 @@ class Appointment(db.Model):
 @app.route('/show', methods=['GET'])
 def get_appointments():
     appointments = Appointment.query.all()
+    time.sleep(15)
     return [appointment.as_dict() for appointment in appointments]
 
 
@@ -51,20 +57,18 @@ def delete_appointment(patient):
 
 @app.route('/record', methods=['POST'])
 def create_appointment():
+    REQUEST_COUNT.ink()
     doctor = request.json.get('doctor')
     patient = request.json.get('patient')
     date = request.json.get('date') 
-
     # Check if there is already an appointment at the same time
     existing_appointment = Appointment.query.filter_by(doctor=doctor, date=date).first()
     if existing_appointment:
         return jsonify(success=False, message='This time slot is already taken')
-
     new_appointment = Appointment(doctor=doctor, patient=patient, date=date)
     db.session.add(new_appointment)
     db.session.commit()
     return jsonify(success=True, appointment=new_appointment.as_dict())
-
 
 if __name__ == '__main__':
     app.run(host=APP_HOST, port=APP_PORT, debug=IS_DEBUG)
