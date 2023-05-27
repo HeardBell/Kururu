@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 
 from prometheus_flask_exporter import PrometheusMetrics
-from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST, Histogram, Gauge
 
 load_dotenv()
 DB_NAME = os.getenv('DB_NAME')
@@ -28,6 +28,11 @@ migrate = Migrate(app, db)
 metrics = PrometheusMetrics(app)
 
 REQUEST_COUNT = Counter('ALABAMA_REQUEST', 'Number of requests served')
+# Создаем метрику REQUEST_LATENCY
+request_latency_metric = Histogram('REQUEST_LATENCY', 'Request latency')
+# Define Prometheus metrics
+DB_QUERY_COUNT = Counter('db_query_count', 'Number of database queries')
+DB_QUERY_LATENCY = Histogram('db_query_latency_seconds', 'Latency of database queries')
 
 class Appointment(db.Model):
     __tablename__ = 'doctorTime'
@@ -43,9 +48,11 @@ class Appointment(db.Model):
 
 @app.route('/show', methods=['GET'])
 def get_appointments():
-    appointments = Appointment.query.all()
-    time.sleep(5)
-    return [appointment.as_dict() for appointment in appointments]
+    REQUEST_COUNT.inc()
+    with request_latency_metric.time():
+        appointments = Appointment.query.all()
+        time.sleep(5)
+        return [appointment.as_dict() for appointment in appointments]
 
 
 @app.route("/delete/<patient>", methods=['DELETE'])
@@ -62,7 +69,9 @@ def metrics():
 
 @app.route('/record', methods=['POST'])
 def create_appointment():
-    REQUEST_COUNT.inc()
+    # Start timer for query latency
+    start_time = time.time()
+
     doctor = request.json.get('doctor')
     patient = request.json.get('patient')
     date = request.json.get('date') 
@@ -73,6 +82,12 @@ def create_appointment():
     new_appointment = Appointment(doctor=doctor, patient=patient, date=date)
     db.session.add(new_appointment)
     db.session.commit()
+
+    # Increase query count
+    DB_QUERY_COUNT.inc()
+    # Record query latency
+    DB_QUERY_LATENCY.observe(time.time() - start_time)
+
     return jsonify(success=True, appointment=new_appointment.as_dict())
 
 
